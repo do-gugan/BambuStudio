@@ -1088,6 +1088,8 @@ void GUI_App::post_init()
             for (auto input_str : input_str_arr) {
                 if (boost::starts_with(input_str, "http://makerworld") ||
                     boost::starts_with(input_str, "https://makerworld") ||
+                    boost::starts_with(input_str, "http://public-cdn.bblmw.com") ||
+                    boost::starts_with(input_str, "https://public-cdn.bblmw.com") ||
                     boost::algorithm::contains(input_str, "amazonaws.com") ||
                     boost::algorithm::contains(input_str, "aliyuncs.com")) {
                     download_url = input_str;
@@ -2047,6 +2049,9 @@ void GUI_App::init_networking_callbacks()
                                 }
                                 event.SetInt(-1);
                             } else if (state == ConnectStatus::ConnectStatusLost) {
+                                obj->set_access_code("");
+                                obj->erase_user_access_code();
+                                m_device_manager->localMachineList.erase(obj->dev_id);
                                 m_device_manager->set_selected_machine("", true);
                                 event.SetInt(-1);
                                 BOOST_LOG_TRIVIAL(info) << "set_on_local_connect_fn: state = lost";
@@ -3232,8 +3237,8 @@ void GUI_App::update_publish_status()
 
 bool GUI_App::has_model_mall()
 {
-    if (auto cc = app_config->get_region(); cc == "CNH" || cc == "China" || cc == "")
-        return false;
+    /*if (auto cc = app_config->get_region(); cc == "CNH" || cc == "China" || cc == "")
+        return false;*/
     return true;
 }
 
@@ -4027,6 +4032,19 @@ std::string GUI_App::handle_web_request(std::string cmd)
                     });
             }
             else if (command_str.compare("homepage_login_or_register") == 0) {
+
+                if (root.get_child_optional("makerworld_model_id") != boost::none) {
+                    boost::optional<std::string> ModelID      = root.get_optional<std::string>("makerworld_model_id");
+                    if (ModelID.has_value()) {
+                        if (mainframe) {
+                            if (mainframe->m_webview) 
+                            { 
+                                mainframe->m_webview->SetMakerworldModelID(ModelID.value()); 
+                            }
+                        }
+                    }
+                }
+
                 CallAfter([this] {
                     this->request_login(true);
                 });
@@ -6448,6 +6466,7 @@ wxString GUI_App::current_language_code_safe() const
 		{ "zh", 	"zh_CN", },
 		{ "ru", 	"ru_RU", },
         { "tr",     "tr_TR", },
+        { "pt",     "pt_BR", },
 	};
 	wxString language_code = this->current_language_code().BeforeFirst('_');
 	auto it = mapping.find(language_code);

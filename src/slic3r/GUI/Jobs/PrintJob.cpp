@@ -1,4 +1,5 @@
 #include "PrintJob.hpp"
+#include <regex>
 #include "libslic3r/MTUtils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
@@ -296,6 +297,7 @@ void PrintJob::process()
     }
 
     params.stl_design_id = 0;
+
     if (!wxGetApp().model().stl_design_id.empty()) {
 
         auto country_code = wxGetApp().app_config->get_country_code();
@@ -326,12 +328,25 @@ void PrintJob::process()
             try {
                 stl_design_id = std::stoi(wxGetApp().model().stl_design_id);
             }
-            catch (const std::exception& e) {
+            catch (...) {
                 stl_design_id = 0;
             }
             params.stl_design_id = stl_design_id;
         }
     }
+
+
+    if (params.stl_design_id == 0 || !wxGetApp().model().design_id.empty()) {
+        try {
+            params.stl_design_id = std::stoi(wxGetApp().model().design_id);
+        }
+        catch (...)
+        {
+            params.stl_design_id = 0;
+        }
+    }
+
+    
 
     if (params.preset_name.empty() && m_print_type == "from_normal") { params.preset_name = wxString::Format("%s_plate_%d", m_project_name, curr_plate_idx).ToStdString(); }
     if (params.project_name.empty()) {params.project_name = m_project_name;}
@@ -511,7 +526,12 @@ void PrintJob::process()
 
 
         //use ftp only
-        if (!wxGetApp().app_config->get("lan_mode_only").empty() && wxGetApp().app_config->get("lan_mode_only") == "1") {
+        if (m_print_type == "from_sdcard_view") {
+            BOOST_LOG_TRIVIAL(info) << "print_job: try to send with cloud, model is sdcard view";
+            this->update_status(curr_percent, _L("Sending print job through cloud service"));
+            result = m_agent->start_sdcard_print(params, update_fn, cancel_fn);
+        }
+        else if (!wxGetApp().app_config->get("lan_mode_only").empty() && wxGetApp().app_config->get("lan_mode_only") == "1") {
 
             if (params.password.empty() || params.dev_ip.empty()) {
                 error_text = wxString::Format("Access code:%s Ip address:%s", params.password, params.dev_ip);
